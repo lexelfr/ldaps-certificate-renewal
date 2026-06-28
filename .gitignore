@@ -1,0 +1,29 @@
+# Logs générés par le script
+Logs/
+*.log
+
+# Fichiers PFX temporaires (ne jamais versionner des clés privées !)
+*.pfx
+*.p12
+
+# Fichiers sensibles
+*.password
+*.key
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# PowerShell
+*.psd1.bak
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp
+*~
