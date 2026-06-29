@@ -50,6 +50,15 @@
     Nombre de jours avant expiration à partir desquels déclencher le renouvellement.
     Par défaut : 30
 
+.PARAMETER IncludeLocalIPsInSAN
+    Inclure automatiquement toutes les adresses IP (IPv4 Unicast) du DC dans le SAN du certificat.
+
+.PARAMETER RemovePrivateKeyFromLocalMachine
+    Supprimer la clé privée du store LocalMachine\My après l'export PFX. (Par défaut, elle est conservée).
+
+.PARAMETER RemoveOldCertificateFromNTDS
+    Retirer le certificat existant (même s'il n'est pas encore expiré) du store NTDS après le renouvellement.
+
 .EXAMPLE
     # Renouvellement simple sur le DC local
     .\Renew-LDAPSCertificate.ps1 -DomainControllerFQDN "dc01.corp.example.com" -DomainFQDN "corp.example.com"
@@ -75,10 +84,18 @@
     Test-LDAPSCertificate -HostName "dc01.corp.example.com"
     Get-NTDSCertificateStatus
 
+.EXAMPLE
+    # Renouvellement avec inclusion des IPs locales et nettoyage agressif
+    .\Renew-LDAPSCertificate.ps1 `
+        -DomainControllerFQDN "dc01.corp.example.com" `
+        -DomainFQDN "corp.example.com" `
+        -IncludeLocalIPsInSAN `
+        -RemoveOldCertificateFromNTDS
+
 .NOTES
     Auteur    : Script basé sur les travaux de Michael Waterman
-    Version   : 1.0
-    Date      : 2026-06-28
+    Version   : 1.1.0
+    Date      : 2026-06-29
 
     PREREQUIS :
     - Execution en tant qu administrateur local sur le DC
@@ -92,7 +109,7 @@
 
     SECURITE :
     - Le fichier PFX temporaire est supprime apres import dans le store NTDS
-    - La cle privee est supprimee du store LocalMachine\My apres export
+    - La cle privee est conservee par defaut dans LocalMachine\My (optionnel via -RemovePrivateKeyFromLocalMachine)
     - Les logs sont horodates et incluent les thumbprints pour auditabilite
 #>
 

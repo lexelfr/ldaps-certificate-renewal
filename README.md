@@ -64,6 +64,17 @@ Créer un modèle de certificat (basé sur *Kerberos Authentication*) avec ces p
     -DaysBeforeExpiryToRenew 60
 ```
 
+### Avec options avancées (IP locales, nettoyage NTDS, suppression clé privée)
+
+```powershell
+.\Renew-LDAPSCertificate.ps1 `
+    -DomainControllerFQDN "dc01.corp.example.com" `
+    -DomainFQDN "corp.example.com" `
+    -IncludeLocalIPsInSAN `
+    -RemovePrivateKeyFromLocalMachine `
+    -RemoveOldCertificateFromNTDS
+```
+
 ### Via PowerShell Remoting (depuis une station de gestion / PAW)
 
 ```powershell
@@ -107,6 +118,9 @@ Get-NTDSCertificateStatus
 | `PFXExportPath` | ❌ | `C:\Temp` | Répertoire pour le PFX temporaire |
 | `PFXPassword` | ❌ | *auto-généré* | Mot de passe SecureString pour le PFX |
 | `DaysBeforeExpiryToRenew` | ❌ | `30` | Seuil en jours pour déclencher le renouvellement |
+| `IncludeLocalIPsInSAN` | ❌ | `$false` | Inclure les IPs (IPv4 Unicast) du DC dans le SAN |
+| `RemovePrivateKeyFromLocalMachine` | ❌ | `$false` | Supprimer la clé privée de `LocalMachine\My` après export |
+| `RemoveOldCertificateFromNTDS` | ❌ | `$false` | Retirer l'ancien certificat de `NTDS\Personal` immédiatement |
 
 ---
 
@@ -161,7 +175,7 @@ Le script configure automatiquement ces Subject Alternative Names (DNS) :
 
 - 🔐 Le PFX est **protégé par un mot de passe aléatoire 32 caractères** (si non fourni)
 - 🗑️ Le fichier PFX temporaire est **supprimé automatiquement** après import
-- 🧹 La clé privée est **retirée de `LocalMachine\My`** après export (principe du moindre privilège)
+- 🧹 La clé privée est **conservée par défaut dans `LocalMachine\My`** (peut être retirée via `-RemovePrivateKeyFromLocalMachine` - principe du moindre privilège)
 - 📋 Chaque opération est **tracée dans un fichier log horodaté** avec les thumbprints
 
 ---

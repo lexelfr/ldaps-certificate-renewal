@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-06-29
+
+### Added
+- Option `-IncludeLocalIPsInSAN` pour ajouter automatiquement les adresses IPv4 Unicast du Contrôleur de Domaine au SAN.
+- Option `-RemovePrivateKeyFromLocalMachine` pour gérer la suppression de la clé privée de `LocalMachine\My`. (Par défaut, la clé est maintenant conservée pour plus de compatibilité).
+- Option `-RemoveOldCertificateFromNTDS` pour forcer le nettoyage de l'ancien certificat du store NTDS immédiatement après le renouvellement (sans attendre son expiration).
+
+---
+
 ## [1.0.0] - 2026-06-28
 
 ### Added
