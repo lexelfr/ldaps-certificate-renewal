@@ -47,10 +47,10 @@ Créer un modèle de certificat (basé sur *Kerberos Authentication*) avec ces p
 
 ### Usage basique (sur le DC directement)
 
+Les paramètres FQDN sont désormais **auto-détectés**. Vous pouvez simplement lancer le script sans argument :
+
 ```powershell
-.\Renew-LDAPSCertificate.ps1 `
-    -DomainControllerFQDN "dc01.corp.example.com" `
-    -DomainFQDN "corp.example.com"
+.\Renew-LDAPSCertificate.ps1
 ```
 
 ### Avec alias load balancer et seuil personnalisé
@@ -111,8 +111,8 @@ Get-NTDSCertificateStatus
 
 | Paramètre | Obligatoire | Défaut | Description |
 |-----------|-------------|--------|-------------|
-| `DomainControllerFQDN` | ✅ | — | FQDN du DC cible (ex: `dc01.corp.example.com`) |
-| `DomainFQDN` | ✅ | — | FQDN du domaine AD (ex: `corp.example.com`) |
+| `DomainControllerFQDN` | ❌ | *auto-détecté* | FQDN du DC cible (ex: `dc01.corp.example.com`) |
+| `DomainFQDN` | ❌ | *auto-détecté* | FQDN du domaine AD (ex: `corp.example.com`) |
 | `CertificateTemplateName` | ❌ | `NTDSStoreKerberosAuthentication` | Nom interne du template AD CS |
 | `LDAPSAlias` | ❌ | — | FQDN du load balancer LDAPS (ajouté aux SANs) |
 | `PFXExportPath` | ❌ | `C:\Temp` | Répertoire pour le PFX temporaire |
@@ -180,33 +180,34 @@ Le script configure automatiquement ces Subject Alternative Names (DNS) :
 
 ---
 
-## Automatisation via Tâche Planifiée
+## Automatisation Totale via GPO (Recommandé)
 
-```powershell
-# Créer une tâche planifiée pour vérifier tous les 7 jours
-$action = New-ScheduledTaskAction `
-    -Execute "powershell.exe" `
-    -Argument @"
--NonInteractive -ExecutionPolicy Bypass -File "C:\Scripts\Renew-LDAPSCertificate.ps1" `
--DomainControllerFQDN "$($env:COMPUTERNAME).$((Get-WmiObject Win32_ComputerSystem).Domain)" `
--DomainFQDN "$((Get-WmiObject Win32_ComputerSystem).Domain)" `
--DaysBeforeExpiryToRenew 60
-"@
+Pour déployer automatiquement cette tâche sur **tous vos Contrôleurs de Domaine** (présents et futurs), il est recommandé de créer une **Group Policy Preference (GPP)**. 
 
-$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At "02:00AM"
+### 1. Préparation
+1. Placez le script `Renew-LDAPSCertificate.ps1` dans un partage réseau accessible par tous les DCs, par exemple le **SYSVOL** :
+   `\\votredomaine.com\SYSVOL\votredomaine.com\scripts\Renew-LDAPSCertificate.ps1`
+2. Assurez-vous que le modèle de certificat AD CS (Template) a les permissions **Read**, **Enroll** et **Autoenroll** pour le groupe "Domain Controllers".
+3. L'option "CA Certificate manager approval" **doit être désactivée** sur le template pour que le processus soit 100% autonome.
 
-$principal = New-ScheduledTaskPrincipal `
-    -UserId "SYSTEM" `
-    -LogonType ServiceAccount `
-    -RunLevel Highest
+### 2. Création de la GPO
+Créez une GPO liée à l'Unité d'Organisation (OU) `Domain Controllers` et naviguez vers :
+**Computer Configuration > Preferences > Control Panel Settings > Scheduled Tasks**
 
-Register-ScheduledTask `
-    -TaskName "LDAPS Certificate Renewal" `
-    -Action $action `
-    -Trigger $trigger `
-    -Principal $principal `
-    -Description "Renouvellement automatique du certificat LDAPS dans NTDS\Personal"
-```
+Créez une nouvelle tâche planifiée (At least Windows 7) avec ces paramètres :
+- **General** : 
+  - Action: `Update` (ou `Replace`)
+  - Name: `AutoRenew-LDAPS-Certificate`
+  - User Account: `NT AUTHORITY\SYSTEM`
+  - Cochez **Run with highest privileges**
+- **Triggers** : 
+  - *Trigger 1* : **At system startup** (avec un délai de 5 minutes). *Garantit qu'un nouveau DC fraîchement promu obtient son certificat dès son premier redémarrage.*
+  - *Trigger 2* : **Daily** à 02:00 AM. *Pour vérifier quotidiennement si le seuil de renouvellement est atteint.*
+- **Actions** :
+  - Action: `Start a program`
+  - Program/script: `powershell.exe`
+  - Add arguments: `-ExecutionPolicy Bypass -WindowStyle Hidden -File "\\votredomaine.com\SYSVOL\votredomaine.com\scripts\Renew-LDAPSCertificate.ps1" -IncludeLocalIPsInSAN -RemoveOldCertificateFromNTDS`
+  *(Note : plus besoin de spécifier les FQDN, le script les auto-détecte).*
 
 ---
 

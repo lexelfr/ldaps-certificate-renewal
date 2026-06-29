@@ -115,14 +115,12 @@
 
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
-    [Parameter(Mandatory = $true, Position = 0,
-        HelpMessage = "FQDN du Controleur de Domaine cible")]
-    [ValidateNotNullOrEmpty()]
+    [Parameter(Mandatory = $false, Position = 0,
+        HelpMessage = "FQDN du Controleur de Domaine cible (auto-detecte si non fourni)")]
     [string]$DomainControllerFQDN,
 
-    [Parameter(Mandatory = $true, Position = 1,
-        HelpMessage = "FQDN du domaine Active Directory")]
-    [ValidateNotNullOrEmpty()]
+    [Parameter(Mandatory = $false, Position = 1,
+        HelpMessage = "FQDN du domaine Active Directory (auto-detecte si non fourni)")]
     [string]$DomainFQDN,
 
     [Parameter(Mandatory = $false,
@@ -161,6 +159,19 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+# Auto-detection des noms si non fournis (ideal pour les Taches Planifiees GPO)
+if ([string]::IsNullOrWhiteSpace($DomainFQDN)) {
+    try {
+        $DomainFQDN = (Get-WmiObject Win32_ComputerSystem).Domain
+    } catch {
+        throw "Impossible de detecter automatiquement le nom du domaine. Veuillez specifier -DomainFQDN."
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($DomainControllerFQDN)) {
+    $DomainControllerFQDN = "$env:COMPUTERNAME.$DomainFQDN".ToLower()
+}
 
 #region Utilitaires
 
