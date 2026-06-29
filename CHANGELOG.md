@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] - 2026-06-29
+
+### Added
+- Auto-détection du FQDN du contrôleur de domaine et du domaine via WMI et variables d'environnement.
+- Rendu des paramètres `-DomainControllerFQDN` et `-DomainFQDN` optionnels pour simplifier drastiquement le déploiement via GPO.
+
+---
+
 ## [1.1.0] - 2026-06-29
 
 ### Added

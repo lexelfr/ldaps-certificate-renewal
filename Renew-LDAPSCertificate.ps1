@@ -24,11 +24,11 @@
 
 .PARAMETER DomainControllerFQDN
     Le nom de domaine complet (FQDN) du Contrôleur de Domaine cible.
-    Exemple : dc01.corp.example.com
+    (Auto-détecté par défaut). Exemple : dc01.corp.example.com
 
 .PARAMETER DomainFQDN
     Le nom de domaine complet du domaine Active Directory.
-    Exemple : corp.example.com
+    (Auto-détecté par défaut). Exemple : corp.example.com
 
 .PARAMETER CertificateTemplateName
     Le nom interne du modèle de certificat à utiliser.
@@ -94,7 +94,7 @@
 
 .NOTES
     Auteur    : Script basé sur les travaux de Michael Waterman
-    Version   : 1.1.0
+    Version   : 1.2.0
     Date      : 2026-06-29
 
     PREREQUIS :
