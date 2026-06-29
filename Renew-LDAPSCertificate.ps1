@@ -127,7 +127,19 @@ param(
     [Parameter(Mandatory = $false,
         HelpMessage = "Jours avant expiration pour declencher le renouvellement")]
     [ValidateRange(1, 365)]
-    [int]$DaysBeforeExpiryToRenew = 30
+    [int]$DaysBeforeExpiryToRenew = 30,
+
+    [Parameter(Mandatory = $false,
+        HelpMessage = "Inclure automatiquement toutes les adresses IP (IPv4 Unicast) du DC dans le SAN du certificat")]
+    [switch]$IncludeLocalIPsInSAN,
+
+    [Parameter(Mandatory = $false,
+        HelpMessage = "Supprimer la cle privee du store LocalMachine\My apres l'export PFX (par defaut: $false)")]
+    [switch]$RemovePrivateKeyFromLocalMachine,
+
+    [Parameter(Mandatory = $false,
+        HelpMessage = "Retirer le certificat existant (meme s'il n'est pas encore expire) du store NTDS apres le renouvellement")]
+    [switch]$RemoveOldCertificateFromNTDS
 )
 
 Set-StrictMode -Version Latest
@@ -446,7 +458,22 @@ function Invoke-LDAPSCertificateRenewal {
     if ($LDAPSAlias -and $LDAPSAlias -ne "") {
         $dnsSANs += $LDAPSAlias
     }
-    Write-Log -Message "SANs DNS configures : $($dnsSANs -join ', ')" -Level "INFO"
+    if ($IncludeLocalIPsInSAN) {
+        Write-Log -Message "Recuperation des adresses IP locales du DC..." -Level "INFO"
+        try {
+            # Recupere les IPs IPv4 Unicast, excluant loopback/APIPA
+            $ips = Get-NetIPAddress -AddressFamily IPv4 -Type Unicast -ErrorAction Stop | 
+                   Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" } | 
+                   Select-Object -ExpandProperty IPAddress
+            if ($ips) {
+                $dnsSANs += $ips
+            }
+        }
+        catch {
+            Write-Log -Message "Avertissement: Impossible de recuperer les IPs locales. $($_.Exception.Message)" -Level "WARNING"
+        }
+    }
+    Write-Log -Message "SANs configures : $($dnsSANs -join ', ')" -Level "INFO"
 
     $pfxFileName = "ldaps_$(($DomainControllerFQDN -split '\.')[0])_$(Get-Date -Format 'yyyyMMdd_HHmmss').pfx"
     $pfxFilePath = Join-Path $PFXExportPath $pfxFileName
@@ -561,18 +588,22 @@ function Invoke-LDAPSCertificateRenewal {
             [System.IO.File]::WriteAllBytes($pfxFilePath, $pfxBytes)
             Write-Log -Message "PFX exporte : $pfxFilePath" -Level "SUCCESS"
 
-            Write-Log -Message "Suppression du certificat du store LocalMachine\My..." -Level "INFO"
-            $myStore = [System.Security.Cryptography.X509Certificates.X509Store]::new(
-                [System.Security.Cryptography.X509Certificates.StoreName]::My,
-                [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
-            )
-            $myStore.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-            try {
-                $myStore.Remove($issuedCert)
-                Write-Log -Message "Certificat supprime du store LocalMachine\My." -Level "INFO"
-            }
-            finally {
-                $myStore.Close()
+            if ($RemovePrivateKeyFromLocalMachine) {
+                Write-Log -Message "Suppression du certificat du store LocalMachine\My..." -Level "INFO"
+                $myStore = [System.Security.Cryptography.X509Certificates.X509Store]::new(
+                    [System.Security.Cryptography.X509Certificates.StoreName]::My,
+                    [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
+                )
+                $myStore.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+                try {
+                    $myStore.Remove($issuedCert)
+                    Write-Log -Message "Certificat supprime du store LocalMachine\My." -Level "INFO"
+                }
+                finally {
+                    $myStore.Close()
+                }
+            } else {
+                Write-Log -Message "Conservation du certificat dans le store LocalMachine\My (comportement par defaut)." -Level "INFO"
             }
         }
     }
@@ -628,22 +659,23 @@ function Invoke-LDAPSCertificateRenewal {
                             -OpenFlags ([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
         $allNTDSCerts  = $ntdsStoreRead.Certificates
 
-        $expiredCerts = $allNTDSCerts | Where-Object {
-            $_.NotAfter -lt (Get-Date) -and
+        $certsToRemove = $allNTDSCerts | Where-Object {
+            ( $_.NotAfter -lt (Get-Date) -or $RemoveOldCertificateFromNTDS ) -and
             $_.Thumbprint -ne $script:NewCertThumbprint
         }
 
-        if ($expiredCerts -and $expiredCerts.Count -gt 0) {
-            Write-Log -Message "Suppression de $($expiredCerts.Count) certificat(s) expire(s) du store NTDS..." -Level "INFO"
-            foreach ($expCert in $expiredCerts) {
-                Write-Log -Message "  Suppression : $($expCert.Thumbprint) (expire le $($expCert.NotAfter.ToString('yyyy-MM-dd')))" -Level "INFO"
-                if ($PSCmdlet.ShouldProcess($expCert.Thumbprint, "Supprimer le certificat NTDS expire")) {
-                    $ntdsStoreRead.Remove($expCert)
+        if ($certsToRemove -and $certsToRemove.Count -gt 0) {
+            Write-Log -Message "Suppression de $($certsToRemove.Count) ancien(s) certificat(s) du store NTDS..." -Level "INFO"
+            foreach ($oldCert in $certsToRemove) {
+                $statusMsg = if ($oldCert.NotAfter -lt (Get-Date)) { "expire" } else { "remplace" }
+                Write-Log -Message "  Suppression : $($oldCert.Thumbprint) ($statusMsg le $($oldCert.NotAfter.ToString('yyyy-MM-dd')))" -Level "INFO"
+                if ($PSCmdlet.ShouldProcess($oldCert.Thumbprint, "Supprimer l'ancien certificat NTDS")) {
+                    $ntdsStoreRead.Remove($oldCert)
                 }
             }
         }
         else {
-            Write-Log -Message "Aucun certificat expire a supprimer du store NTDS." -Level "INFO"
+            Write-Log -Message "Aucun certificat expire ou ancien a supprimer du store NTDS." -Level "INFO"
         }
     }
     catch {
