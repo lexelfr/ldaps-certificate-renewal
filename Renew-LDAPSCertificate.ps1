@@ -94,7 +94,7 @@
 
 .NOTES
     Auteur    : Script basé sur les travaux de Michael Waterman
-    Version   : 1.2.1
+    Version   : 1.2.2
     Date      : 2026-06-30
 
     PREREQUIS :
@@ -611,9 +611,9 @@ function Invoke-LDAPSCertificateRenewal {
 
     try {
         if ($PSCmdlet.ShouldProcess($pfxFilePath, "Exporter le certificat en PFX")) {
-            $exportFlags = [System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx
-            $pfxBytes    = $issuedCert.Export($exportFlags, $PFXPassword)
-            [System.IO.File]::WriteAllBytes($pfxFilePath, $pfxBytes)
+            # Utilisation de Export-PfxCertificate (PKI module) pour supporter les cles CNG (KSP) 
+            # contrairement a la methode .NET .Export() qui echoue sur PS 5.1 avec les templates V3/V4
+            Export-PfxCertificate -Cert $issuedCert -FilePath $pfxFilePath -Password $PFXPassword -Force | Out-Null
             Write-Log -Message "PFX exporte : $pfxFilePath" -Level "SUCCESS"
 
             if ($RemovePrivateKeyFromLocalMachine) {

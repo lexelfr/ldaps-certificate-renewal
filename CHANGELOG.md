@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.2] - 2026-06-30
+
+### Fixed
+- Remplacement de la méthode `.NET` `.Export()` par la commande native `Export-PfxCertificate` pour corriger l'erreur d'exportation (`Clé non valide pour l'utilisation dans l'état spécifié`) avec les clés cryptographiques de nouvelle génération (CNG / KSP).
+
+---
+
 ## [1.2.1] - 2026-06-30
 
 ### Fixed
