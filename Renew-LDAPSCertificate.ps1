@@ -149,7 +149,7 @@ param(
     [switch]$IncludeLocalIPsInSAN,
 
     [Parameter(Mandatory = $false,
-        HelpMessage = "Supprimer la cle privee du store LocalMachine\My apres l'export PFX (par defaut: $false)")]
+        HelpMessage = "Supprimer la cle privee du store LocalMachine\My apres l'export PFX (par defaut: faux)")]
     [switch]$RemovePrivateKeyFromLocalMachine,
 
     [Parameter(Mandatory = $false,
@@ -797,8 +797,8 @@ function Test-LDAPSCertificate {
         Write-Host "  Subject    : $($cert.Subject)" -ForegroundColor White
         Write-Host "  Thumbprint : $($cert.Thumbprint)" -ForegroundColor White
         Write-Host "  Delivre par: $($cert.Issuer)" -ForegroundColor White
-        Write-Host "  Valide du  : $($cert.NotBefore.ToString('yyyy-MM-dd HH:mm:ss'))" -ForegroundColor White
-        Write-Host "  Expire le  : $($cert.NotAfter.ToString('yyyy-MM-dd HH:mm:ss')) ($daysRemaining jours)" -ForegroundColor $color
+        Write-Host ('  Valide du  : {0}' -f $cert.NotBefore.ToString('yyyy-MM-dd HH:mm:ss')) -ForegroundColor White
+        Write-Host ('  Expire le  : {0} ({1} jours)' -f $cert.NotAfter.ToString('yyyy-MM-dd HH:mm:ss'), $daysRemaining) -ForegroundColor $color
 
         $sanExt = $cert.Extensions | Where-Object { $_.Oid.FriendlyName -eq "Subject Alternative Name" }
         if ($sanExt) {
@@ -851,9 +851,11 @@ function Get-NTDSCertificateStatus {
         Write-Host ""
         Write-Host "  $status $($cert.Subject)" -ForegroundColor $color
         Write-Host "    Thumbprint : $($cert.Thumbprint)" -ForegroundColor White
-        Write-Host "    Expire le  : $($cert.NotAfter.ToString('yyyy-MM-dd HH:mm:ss')) ($daysRemaining jours)" -ForegroundColor $color
-        Write-Host "    Cle privee : $(if ($cert.HasPrivateKey) { 'Oui [OK]' } else { 'Non [MANQUANTE]' })" `
-                   -ForegroundColor $(if ($cert.HasPrivateKey) { "Green" } else { "Red" })
+        Write-Host ('    Expire le  : {0} ({1} jours)' -f $cert.NotAfter.ToString('yyyy-MM-dd HH:mm:ss'), $daysRemaining) -ForegroundColor $color
+        
+        $pkStatus = if ($cert.HasPrivateKey) { 'Oui [OK]' } else { 'Non [MANQUANTE]' }
+        $pkColor  = if ($cert.HasPrivateKey) { 'Green' } else { 'Red' }
+        Write-Host ('    Cle privee : {0}' -f $pkStatus) -ForegroundColor $pkColor
     }
     Write-Host ""
 }
