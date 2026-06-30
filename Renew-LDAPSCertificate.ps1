@@ -94,7 +94,7 @@
 
 .NOTES
     Auteur    : Script basé sur les travaux de Michael Waterman
-    Version   : 1.2.3
+    Version   : 1.2.4
     Date      : 2026-06-30
 
     PREREQUIS :
@@ -179,6 +179,7 @@ function Write-Log {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
         [string]$Message,
 
         [Parameter(Mandatory = $false)]

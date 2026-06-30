@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.4] - 2026-06-30
+
+### Fixed
+- Ajout de l'attribut `[AllowEmptyString()]` à la fonction `Write-Log` pour corriger l'erreur de validation des chaînes vides (ex: `Write-Log -Message ""`).
+
+---
+
 ## [1.2.3] - 2026-06-30
 
 ### Fixed
