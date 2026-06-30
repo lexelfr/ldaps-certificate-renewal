@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.3] - 2026-06-30
+
+### Fixed
+- Correction logique majeure dans l'étape 3 : le script utilise désormais *strictement* le certificat qui vient d'être généré, au lieu de rechercher le certificat valide le plus lointain (ce qui risquait de sélectionner un ancien certificat corrompu).
+
+---
+
 ## [1.2.2] - 2026-06-30
 
 ### Fixed

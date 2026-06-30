@@ -94,7 +94,7 @@
 
 .NOTES
     Auteur    : Script basé sur les travaux de Michael Waterman
-    Version   : 1.2.2
+    Version   : 1.2.3
     Date      : 2026-06-30
 
     PREREQUIS :
@@ -581,17 +581,24 @@ function Invoke-LDAPSCertificateRenewal {
 
     Start-Sleep -Seconds 2
 
-    $issuedCert = Get-ChildItem "Cert:\LocalMachine\My" |
-        Where-Object {
-            $_.Subject -like "*$DomainControllerFQDN*" -and
-            $_.NotAfter -gt (Get-Date) -and
-            $_.HasPrivateKey
-        } |
-        Sort-Object NotAfter -Descending |
-        Select-Object -First 1
-
-    if (-not $issuedCert -and $enrollResult -and $enrollResult.Certificate) {
-        $issuedCert = $enrollResult.Certificate
+    $issuedCert = $null
+    if ($enrollResult -and $enrollResult.Status -eq "Issued" -and $enrollResult.Certificate) {
+        # Utiliser STRICTEMENT le certificat qui vient d'être émis
+        $issuedCert = Get-Item -Path "cert:\LocalMachine\My\$($enrollResult.Certificate.Thumbprint)" -ErrorAction SilentlyContinue
+        if (-not $issuedCert) {
+            $issuedCert = $enrollResult.Certificate
+        }
+    }
+    else {
+        # Fallback (ex: cas d'une demande Pending approuvée manuellement)
+        $issuedCert = Get-ChildItem "Cert:\LocalMachine\My" |
+            Where-Object {
+                $_.Subject -like "*$DomainControllerFQDN*" -and
+                $_.NotAfter -gt (Get-Date) -and
+                $_.HasPrivateKey
+            } |
+            Sort-Object NotAfter -Descending |
+            Select-Object -First 1
     }
 
     if (-not $issuedCert) {
