@@ -94,8 +94,8 @@
 
 .NOTES
     Auteur    : Script basé sur les travaux de Michael Waterman
-    Version   : 1.2.0
-    Date      : 2026-06-29
+    Version   : 1.2.1
+    Date      : 2026-06-30
 
     PREREQUIS :
     - Execution en tant qu administrateur local sur le DC

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.1] - 2026-06-30
+
+### Fixed
+- Résolution d'un bug de parsing natif à PowerShell 5.1 lié à l'évaluation d'expressions dans des chaînes de caractères.
+- Correction d'une erreur d'évaluation (`$false`) dans l'attribut `HelpMessage`.
+
+---
+
 ## [1.2.0] - 2026-06-29
 
 ### Added
