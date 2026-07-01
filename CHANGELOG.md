@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2026-07-01
+
+### Fixed
+- **Migration `Get-CimInstance`** : Remplacement de `Get-WmiObject` (déprécié depuis PS 3.0, absent de PS 7+) par `Get-CimInstance` pour la détection du domaine et du rôle DC (2 occurrences).
+- **Fuite de handle NTDS** : Le store `NTDS\Personal` est désormais explicitement fermé (`Close()`) dans le bloc `finally` de l'étape 5, évitant un double handle ouvert lors du nettoyage en étape 6.
+- **Fallback Pending plus robuste** : Le fallback de sélection du certificat (dans le cas `Pending`) utilise désormais un filtre sur `NotBefore` récent (à moins de 10 minutes) au lieu du Subject, pour éviter de sélectionner un ancien certificat corrompu ou sans SAN.
+- **Compatibilité tache planifiée (GPO)** : Remplacement du `Read-Host` interactif (qui bloquait indéfiniment une tâche planifiée non-interactive) par un `Write-Warning` avec continuation automatique.
+
+---
+
 ## [1.2.4] - 2026-06-30
 
 ### Fixed

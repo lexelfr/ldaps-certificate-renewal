@@ -36,10 +36,22 @@ Créer un modèle de certificat (basé sur *Kerberos Authentication*) avec ces p
 | **Subject Name** | Build from this Active Directory information | ❌ Désactivé |
 | **Subject Name** | Supply in the request | ✅ Activé |
 | **Security** | Autoenroll (Domain Controllers) | ❌ Désactivé |
-| **Issuance Requirements** | CA Certificate manager approval | ✅ Activé (recommandé) |
+| **Issuance Requirements** | CA Certificate manager approval | ❌ Désactivé (requis pour l'automatisation) |
 | **Extensions** | Application Policies | Kerberos Authentication |
 
 > **Note** : Désactiver l'autoenrollment est intentionnel. On contrôle manuellement le placement dans NTDS.
+
+### Côté AD CS — Autoriser les SANs fournis dans la requête
+
+Par défaut, une CA Microsoft **refuse et supprime** les SANs (IPs, aliases) fournis manuellement dans une requête de certificat, même si le template est en `Supply in the request`. Il faut explicitement autoriser ce comportement avec cette commande à exécuter **une seule fois sur le serveur CA** :
+
+```cmd
+certutil -setreg policy\EditFlags +EDITF_ATTRIBUTESUBJECTALTNAME2
+net stop certsvc
+net start certsvc
+```
+
+> ⚠️ **Sécurité** : Cette configuration permet à n'importe quel utilisateur ayant l'Enroll de demander un certificat avec des SANs arbitraires. À ne faire que si les permissions d'enrollment du template sont strictement limitées au groupe `Domain Controllers`.
 
 ---
 
@@ -217,6 +229,23 @@ Créez une nouvelle tâche planifiée (At least Windows 7) avec ces paramètres 
 |----------|----------------|----------|
 | `Certificat en attente d'approbation` | Template configuré avec approbation CA Manager | Approuver manuellement sur le CA puis relancer |
 | `Impossible d'ouvrir le store NTDS\My` | Script non exécuté sur un DC, ou pas Admin | Vérifier le contexte d'exécution |
-| `Le certificat n'a pas de clé privée` | Template sans option d'export | Vérifier *Request Handling* dans le template |
+| `Le certificat n'a pas de clé privée` | Template sans option d'export | Vérifier *Request Handling* > *Allow private key to be exported* |
+| `Clé non valide pour l'utilisation dans l'état spécifié` | Clé CNG non exportable dans le cache local | Vider le cache : `Remove-Item HKLM:\SOFTWARE\Microsoft\Cryptography\CertificateTemplateCache -Recurse -Force` puis `Restart-Service CryptSvc` |
+| SAN / IPs absents du certificat émis | La CA refuse les SANs fournis dans la requête | Exécuter `certutil -setreg policy\EditFlags +EDITF_ATTRIBUTESUBJECTALTNAME2` puis `net stop/start certsvc` sur la CA |
+| Subject vide dans le certificat émis | Template toujours en mode *Build from AD* | Basculer sur *Supply in the request* dans l'onglet *Subject Name* du template |
 | Thumbprint ne correspond pas après import | Délai de propagation NTDS | Attendre 30-60 secondes, retester avec `Test-LDAPSCertificate` |
 | `Get-Certificate: template not found` | Nom de template incorrect | Vérifier le *Template name* (pas le Display name) dans la CA |
+
+---
+
+## Notes de version
+
+| Version | Date | Description |
+|---------|------|-------------|
+| **1.3.0** | 2026-07-01 | Corrections code review : migration `Get-CimInstance`, fuite handle NTDS, fallback Pending robuste, compatibilité GPO non-interactive |
+| 1.2.4 | 2026-06-30 | Fix `[AllowEmptyString()]` sur `Write-Log` |
+| 1.2.3 | 2026-06-30 | Correction sélection stricte du certificat émis par Thumbprint |
+| 1.2.2 | 2026-06-30 | Migration vers `Export-PfxCertificate` pour la compatibilité CNG |
+| 1.2.1 | 2026-06-30 | Fix erreurs de parsing PowerShell 5.1 |
+| 1.2.0 | 2026-06-28 | Automatisation complète via GPO, vérification NTDS, options avancées |
+| 1.0.0 | 2026-06-27 | Version initiale |

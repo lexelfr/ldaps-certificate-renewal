@@ -94,8 +94,8 @@
 
 .NOTES
     Auteur    : Script basé sur les travaux de Michael Waterman
-    Version   : 1.2.4
-    Date      : 2026-06-30
+    Version   : 1.3.0
+    Date      : 2026-07-01
 
     PREREQUIS :
     - Execution en tant qu administrateur local sur le DC
@@ -163,7 +163,8 @@ $ErrorActionPreference = "Stop"
 # Auto-detection des noms si non fournis (ideal pour les Taches Planifiees GPO)
 if ([string]::IsNullOrWhiteSpace($DomainFQDN)) {
     try {
-        $DomainFQDN = (Get-WmiObject Win32_ComputerSystem).Domain
+        # Get-CimInstance est la methode moderne (Get-WmiObject est deprecated depuis PS 3.0 et absent de PS 7+)
+        $DomainFQDN = (Get-CimInstance -ClassName Win32_ComputerSystem).Domain
     } catch {
         throw "Impossible de detecter automatiquement le nom du domaine. Veuillez specifier -DomainFQDN."
     }
@@ -546,9 +547,12 @@ function Invoke-LDAPSCertificateRenewal {
 
                 Start-Sleep -Seconds 5
 
+                # Filtre sur NotBefore recent pour eviter de recuperer un ancien certificat
+                # qui aurait un Subject correspondant mais ne serait pas la demande courante
+                $recentThreshold = (Get-Date).AddMinutes(-10)
                 $issuedCert = Get-ChildItem "Cert:\LocalMachine\My" |
-                    Where-Object { $_.HasPrivateKey -and $_.Subject -like "*$DomainControllerFQDN*" -and $_.NotAfter -gt (Get-Date) } |
-                    Sort-Object NotAfter -Descending |
+                    Where-Object { $_.HasPrivateKey -and $_.NotAfter -gt (Get-Date) -and $_.NotBefore -gt $recentThreshold } |
+                    Sort-Object NotBefore -Descending |
                     Select-Object -First 1
 
                 if (-not $issuedCert) {
@@ -651,6 +655,7 @@ function Invoke-LDAPSCertificateRenewal {
     # --- Etape 5 : Import dans le store NTDS\Personal ---
     Write-Log -Message "ETAPE 5 : Import du certificat dans le store NTDS\Personal" -Level "STEP"
 
+    $ntdsStore = $null
     try {
         if ($PSCmdlet.ShouldProcess("NTDS\Personal", "Importer le certificat PFX")) {
             $keyStorageFlags = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags](
@@ -679,6 +684,9 @@ function Invoke-LDAPSCertificateRenewal {
         throw
     }
     finally {
+        # Fermeture explicite du handle NTDS pour eviter les fuites de ressources
+        if ($ntdsStore) { $ntdsStore.Close() }
+
         if (Test-Path $pfxFilePath) {
             if ($PSCmdlet.ShouldProcess($pfxFilePath, "Supprimer le fichier PFX temporaire")) {
                 Remove-Item -Path $pfxFilePath -Force
@@ -881,11 +889,12 @@ if (-not $isAdmin) {
 
 $dcRole = $null
 try {
-    $dcRole = (Get-WmiObject -Class Win32_ComputerSystem).DomainRole
+    # Get-CimInstance est la methode moderne (Get-WmiObject est deprecated depuis PS 3.0 et absent de PS 7+)
+    $dcRole = (Get-CimInstance -ClassName Win32_ComputerSystem).DomainRole
     if ($dcRole -lt 4) {
-        Write-Warning "ATTENTION : Ce serveur ne semble pas etre un Controleur de Domaine (DomainRole=$dcRole)."
-        $confirm = Read-Host "Voulez-vous continuer quand meme ? (oui/non)"
-        if ($confirm -ne "oui") { exit 1 }
+        # Read-Host est incompatible avec les taches planifiees non-interactives (GPO).
+        # On emets un avertissement et on continue automatiquement pour garantir l'execution en mode non-interactif.
+        Write-Warning "ATTENTION : Ce serveur ne semble pas etre un Controleur de Domaine (DomainRole=$dcRole). Continuation automatique..."
     }
 }
 catch {
